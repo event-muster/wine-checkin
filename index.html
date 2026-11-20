@@ -2,92 +2,165 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WINE QR読み取りテスト</title>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding: 20px;
-      background: #f4f6f8;
-    }
-    h2 { margin-bottom: 20px; }
-    #reader {
-      width: 100%;
-      max-width: 450px;
-      margin: 20px auto;
-    }
-    button {
-      padding: 15px 25px;
-      font-size: 18px;
-      background: #1a73e8;
-      color: white;
-      border: none;
-      border-radius: 8px;
-    }
-    #result {
-      margin: 20px auto;
-      padding: 18px;
-      max-width: 450px;
-      background: white;
-      border-radius: 8px;
-      font-size: 20px;
-      overflow-wrap: anywhere;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WINE 受付</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+body {
+  font-family: sans-serif;
+  text-align: center;
+  padding: 16px;
+  background: #f4f6f8;
+}
+h2 { margin-bottom: 20px; }
+input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 350px;
+  padding: 14px;
+  font-size: 20px;
+  margin: 8px auto;
+}
+button {
+  padding: 15px 25px;
+  font-size: 18px;
+  background: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  margin: 8px;
+}
+button:disabled { opacity: .5; }
+#reader {
+  width: 100%;
+  max-width: 450px;
+  margin: 20px auto;
+}
+#result {
+  margin: 20px auto;
+  padding: 18px;
+  max-width: 450px;
+  background: white;
+  border-radius: 8px;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+</style>
 </head>
 <body>
 
-  <h2>WINE QR読み取りテスト</h2>
+<h2>WINE 受付</h2>
 
-  <button id="startButton" onclick="startCamera()">
-    カメラを起動する
-  </button>
+<p>スタッフ暗証番号</p>
+<input id="pin" type="password" inputmode="numeric"
+       placeholder="暗証番号を入力">
 
-  <div id="reader"></div>
-  <div id="result">QRコードを読み取ってください</div>
+<br>
+<button id="startButton" onclick="startCamera()">
+  カメラを起動する
+</button>
 
-  <script>
-    let scanner = null;
+<div id="reader"></div>
+<div id="result">QRコードを読み取ってください</div>
 
-    async function startCamera() {
-      const button = document.getElementById("startButton");
-      const result = document.getElementById("result");
+<button onclick="restartCamera()">次の受付へ</button>
 
-      button.disabled = true;
-      result.textContent = "カメラを起動しています...";
+<script>
+const API_URL = "https://wine-checkin-api.event-1b1.workers.dev/";
 
-      try {
-        scanner = new Html5Qrcode("reader");
+let scanner = null;
+let processing = false;
 
-        await scanner.start(
-          { facingMode: "environment" },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 }
-          },
-          function(decodedText) {
-            result.textContent = "読み取り成功：" + decodedText;
-          },
-          function(error) {
-            // 読み取り途中のエラーは表示しません
+async function startCamera() {
+  const pin = document.getElementById("pin").value.trim();
+  const result = document.getElementById("result");
+  const button = document.getElementById("startButton");
+
+  if (!pin) {
+    result.textContent = "暗証番号を入力してください。";
+    return;
+  }
+
+  button.disabled = true;
+  result.textContent = "カメラを起動しています...";
+
+  try {
+    if (!scanner) scanner = new Html5Qrcode("reader");
+
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      async function(decodedText) {
+        if (processing) return;
+        processing = true;
+
+        result.textContent = "受付を確認しています...";
+
+        try {
+          await scanner.pause(true);
+
+          const response = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              code: decodedText.trim(),
+              pin: pin
+            })
+          });
+
+          const data = await response.json();
+
+          if (data.status === "success") {
+            result.textContent =
+              "受付完了！\n" +
+              "受付番号：" + data.code + "\n" +
+              "お名前：" + data.name + "\n" +
+              "人数：" + data.count + "名\n" +
+              "受付時刻：" + data.time;
+          } else if (data.status === "already") {
+            result.textContent =
+              "受付済みです\n" +
+              "受付番号：" + data.code + "\n" +
+              "お名前：" + data.name + "\n" +
+              "受付時刻：" + data.time;
+          } else {
+            result.textContent =
+              data.message || "受付できませんでした。";
           }
-        );
 
-        result.textContent = "カメラ起動成功！QRコードをかざしてください。";
+        } catch (error) {
+          result.textContent =
+            "通信エラー：" + error.message;
+        }
+      },
+      function(error) {}
+    );
 
-      } catch (error) {
-        result.textContent =
-          "カメラ起動エラー：" +
-          (error.name || "") + " " +
-          (error.message || error);
+    result.textContent = "カメラ起動成功！QRコードをかざしてください。";
 
-        button.disabled = false;
-      }
+  } catch (error) {
+    result.textContent =
+      "カメラ起動エラー：" + (error.message || error);
+    button.disabled = false;
+  }
+}
+
+async function restartCamera() {
+  processing = false;
+  document.getElementById("result").textContent =
+    "次のQRコードを読み取ってください。";
+
+  if (scanner) {
+    try {
+      await scanner.resume();
+    } catch (error) {
+      document.getElementById("result").textContent =
+        "再開できません。カメラを起動し直してください。";
     }
-  </script>
+  }
+}
+</script>
 
 </body>
 </html>
