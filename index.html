@@ -1,1 +1,93 @@
 
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WINE QR読み取りテスト</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #f4f6f8;
+    }
+    h2 { margin-bottom: 20px; }
+    #reader {
+      width: 100%;
+      max-width: 450px;
+      margin: 20px auto;
+    }
+    button {
+      padding: 15px 25px;
+      font-size: 18px;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 8px;
+    }
+    #result {
+      margin: 20px auto;
+      padding: 18px;
+      max-width: 450px;
+      background: white;
+      border-radius: 8px;
+      font-size: 20px;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>WINE QR読み取りテスト</h2>
+
+  <button id="startButton" onclick="startCamera()">
+    カメラを起動する
+  </button>
+
+  <div id="reader"></div>
+  <div id="result">QRコードを読み取ってください</div>
+
+  <script>
+    let scanner = null;
+
+    async function startCamera() {
+      const button = document.getElementById("startButton");
+      const result = document.getElementById("result");
+
+      button.disabled = true;
+      result.textContent = "カメラを起動しています...";
+
+      try {
+        scanner = new Html5Qrcode("reader");
+
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+          },
+          function(decodedText) {
+            result.textContent = "読み取り成功：" + decodedText;
+          },
+          function(error) {
+            // 読み取り途中のエラーは表示しません
+          }
+        );
+
+        result.textContent = "カメラ起動成功！QRコードをかざしてください。";
+
+      } catch (error) {
+        result.textContent =
+          "カメラ起動エラー：" +
+          (error.name || "") + " " +
+          (error.message || error);
+
+        button.disabled = false;
+      }
+    }
+  </script>
+
+</body>
+</html>
