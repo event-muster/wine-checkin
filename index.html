@@ -39,12 +39,42 @@ button:disabled { opacity: .5; }
 }
 #result {
   margin: 20px auto;
-  padding: 18px;
+  padding: 25px 15px;
   max-width: 450px;
+  min-height: 180px;
   background: white;
-  border-radius: 8px;
-  font-size: 20px;
+  border-radius: 12px;
+  font-size: 21px;
+  font-weight: bold;
   overflow-wrap: anywhere;
+  white-space: pre-line;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.7;
+}
+
+/* 受付完了：緑 */
+#result.success {
+  background: #087A3E;
+  color: white;
+  font-size: 25px;
+  border: 5px solid #05612F;
+}
+
+/* 受付済み：赤 */
+#result.already {
+  background: #B52222;
+  color: white;
+  font-size: 25px;
+  border: 5px solid #8E1515;
+}
+
+/* エラー：黄色 */
+#result.error {
+  background: #FFF0C2;
+  color: #7A4200;
+  border: 4px solid #E5A000;
 }
 </style>
 </head>
@@ -111,23 +141,28 @@ async function startCamera() {
 
           const data = await response.json();
 
-          if (data.status === "success") {
-            result.textContent =
-              "受付完了！\n" +
-              "受付番号：" + data.code + "\n" +
-              "お名前：" + data.name + "\n" +
-              "人数：" + data.count + "名\n" +
-              "受付時刻：" + data.time;
-          } else if (data.status === "already") {
-            result.textContent =
-              "受付済みです\n" +
-              "受付番号：" + data.code + "\n" +
-              "お名前：" + data.name + "\n" +
-              "受付時刻：" + data.time;
-          } else {
-            result.textContent =
-              data.message || "受付できませんでした。";
-          }
+         if (data.status === "success") {
+  result.className = "success";
+  result.textContent =
+    "✓ 受付完了！\n\n" +
+    "受付番号：" + data.code + "\n" +
+    "お名前：" + data.name + "\n" +
+    "人数：" + data.count + "名\n" +
+    "受付時刻：" + data.time;
+
+} else if (data.status === "already") {
+  result.className = "already";
+  result.textContent =
+    "🚫 受付済み！\n\n" +
+    "受付番号：" + data.code + "\n" +
+    "お名前：" + data.name + "\n" +
+    "受付時刻：" + data.time;
+
+} else {
+  result.className = "error";
+  result.textContent =
+    data.message || "受付できませんでした。";
+}
 
         } catch (error) {
           result.textContent =
@@ -148,8 +183,9 @@ async function startCamera() {
 
 async function restartCamera() {
   processing = false;
-  document.getElementById("result").textContent =
-    "次のQRコードを読み取ってください。";
+  const result = document.getElementById("result");
+result.className = "";
+result.textContent = "次のQRコードを読み取ってください。";
 
   if (scanner) {
     try {
